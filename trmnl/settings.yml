@@ -1,7 +1,7 @@
 name: Trains Orléans → Paris (info gare SNCF)
 strategy: polling
 refresh_interval: 15
-polling_url: https://henry-reveillerguillon.github.io/trains-orleans-paris/trains.json
+polling_url: https://henry-reveillerguillon.github.io/trains-orleans-paris/horaires.json
 polling_verb: GET
 no_screen_padding: 'no'
 dark_mode: 'no'

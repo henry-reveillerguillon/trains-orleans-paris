@@ -1,11 +1,12 @@
-# Toutes les 5 minutes : relit les flux SNCF et publie trains.json sur GitHub Pages.
-# GitHub peut décaler ou sauter des exécutions planifiées quand ses serveurs sont chargés,
-# surtout aux minutes rondes : on tourne donc à :02, :07, :12…
-name: Relais trains
+# Publie horaires.json (trains théoriques Orléans → Paris et leurs dates) sur GitHub Pages.
+# Le temps réel est ajouté par la fonction Serverless du plugin TRMNL (trmnl/serverless.py),
+# à chaque rechargement : cette tâche n'a besoin de tourner qu'à chaque envoi de code,
+# et une fois par semaine pour suivre les nouvelles versions des horaires SNCF.
+name: Horaires trains
 
 on:
   schedule:
-    - cron: "2-59/5 * * * *"
+    - cron: "17 3 * * 1"
   workflow_dispatch:
   push:
     branches: [main]
@@ -14,14 +15,13 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  actions: write
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  relais:
+  horaires:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     environment:
@@ -29,34 +29,11 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-
-      - id: jour
-        run: echo "jour=$(TZ=Europe/Paris date +%Y%m%d)" >> "$GITHUB_OUTPUT"
-
-      # Les horaires théoriques (5 Mo) ne sont téléchargés qu'une fois par jour.
-      - uses: actions/cache@v4
-        with:
-          path: cache
-          key: horaires-${{ steps.jour.outputs.jour }}
-
-      - run: python3 relais.py --out site/trains.json --cache cache
-
+      - run: python3 horaires.py site/horaires.json
       - run: cp index.html site/
-
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
       - id: deploy
         uses: actions/deploy-pages@v4
-
-      # GitHub coupe les tâches planifiées d'un dépôt sans activité depuis 60 jours :
-      # on les réactive une fois par semaine (lundi, entre 3 h et 3 h 05 UTC).
-      - name: Garder la planification active
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$(date -u +%u%H)" = "103" ] && [ "$(date -u +%M)" -lt 5 ]; then
-            gh api -X PUT "repos/${{ github.repository }}/actions/workflows/relais.yml/enable" || true
-          fi
