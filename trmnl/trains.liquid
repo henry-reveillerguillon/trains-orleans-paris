@@ -1,0 +1,155 @@
+{%- comment -%}
+  TRMNL · Trains Orléans → Paris, info en gare SNCF (relais open data, sans clé)
+  Polling : JSON produit par relais.py (horaires théoriques + PIV temps réel + messages voyageurs).
+  Case de l'heure : pleine = suivi en temps réel, pointillée = horaire théorique, barrée = supprimé.
+{%- endcomment -%}
+{%- assign cfg = trmnl.plugin_settings.custom_fields_values -%}
+{%- assign off = trmnl.user.utc_offset | plus: 0 -%}
+{%- assign now_s = "now" | date: "%s" | plus: 0 -%}
+{%- assign walk = cfg.walk_minutes | default: 0 | plus: 0 -%}
+{%- assign max_rows = cfg.max_rows | default: default_rows | plus: 0 -%}
+{%- assign gen = generated_ts | default: 0 | plus: 0 -%}
+{%- assign age_min = now_s | minus: gen | divided_by: 60 -%}
+{%- assign stale = false -%}
+{%- if gen == 0 or age_min > 30 -%}{%- assign stale = true -%}{%- endif -%}
+{%- assign shown = 0 -%}
+
+<style>
+  .trn { display: flex; flex-direction: column; width: 100%; height: 100%; gap: 6px; }
+  .trn, .trn * { font-family: var(--font-large-font-family, var(--value-font-family)); }
+  .trn-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 6px; border-bottom: 4px solid #000; }
+  .trn-title { flex: 1; min-width: 0; font-size: 30px; font-weight: 800; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trn-upd { flex: none; font-size: 14px; line-height: 1.2; text-align: right; white-space: nowrap; }
+  .trn-upd b { font-size: 18px; }
+  .trn-ban { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; line-height: 1.2; padding: 4px 8px; border: 2px solid #000; border-radius: 6px; }
+  .trn-ban span:last-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trn-ban--inv { background: #000; color: #fff; }
+  .trn-ic { flex: none; width: 20px; height: 20px; border-radius: 50%; background: #000; color: #fff; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+  .trn-ban--inv .trn-ic { background: #fff; color: #000; }
+  .trn-rows { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .trn-row { flex: 1; max-height: 80px; min-height: 0; display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #000; }
+  .trn-row:last-child { border-bottom: 0; }
+  .trn-time { flex: none; width: 100px; height: 50px; border-radius: 8px; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 31px; font-weight: 800; }
+  .trn-time--p { background: #fff; color: #000; border: 3px dashed #000; }
+  .trn-time--x { background: #fff; color: #000; border: 2px solid #000; text-decoration: line-through; }
+  .trn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .trn-num { font-size: 23px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trn-no { font-weight: 400; font-size: 0.7em; }
+  .trn-sub { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trn-msg { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trn-quai { flex: none; width: 58px; height: 50px; border: 2px solid #000; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+  .trn-quai small { font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .trn-quai b { font-size: 26px; font-weight: 800; }
+  .trn-quai--none b { font-size: 20px; font-weight: 400; }
+  .trn-state { flex: none; width: 104px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  .trn-in { font-size: 20px; font-weight: 700; white-space: nowrap; }
+  .trn-chip { font-size: 14px; font-weight: 700; background: #000; color: #fff; border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+  .trn-chip--o { background: #fff; color: #000; border: 2px solid #000; }
+  .trn-empty { font-size: 20px; padding: 12px 4px; }
+  .trn-key { display: inline-block; width: 11px; height: 11px; background: #000; border-radius: 2px; vertical-align: -1px; }
+  .trn-key--p { background: #fff; border: 2px dashed #000; }
+
+  .view--half_vertical .trn-title { font-size: 22px; white-space: normal; }
+  .view--half_vertical .trn-upd { font-size: 11px; }
+  .view--half_vertical .trn-upd b { font-size: 15px; }
+  .view--half_vertical .trn-ban { font-size: 13px; padding: 3px 6px; }
+  .view--half_vertical .trn-row { gap: 7px; }
+  .view--half_vertical .trn-time { width: 78px; height: 40px; font-size: 24px; }
+  .view--half_vertical .trn-num { font-size: 17px; }
+  .view--half_vertical .trn-sub, .view--half_vertical .trn-msg { font-size: 12px; }
+  .view--half_vertical .trn-quai { width: 42px; height: 40px; }
+  .view--half_vertical .trn-quai small { font-size: 9px; }
+  .view--half_vertical .trn-quai b { font-size: 20px; }
+  .view--half_vertical .trn-state { width: 70px; }
+  .view--half_vertical .trn-in { font-size: 15px; }
+  .view--half_vertical .trn-chip { font-size: 11px; }
+
+  .view--half_horizontal .trn, .view--quadrant .trn { gap: 3px; }
+  .view--half_horizontal .trn-head, .view--quadrant .trn-head { padding-bottom: 3px; border-bottom-width: 3px; }
+  .view--half_horizontal .trn-title, .view--quadrant .trn-title { font-size: 19px; }
+  .view--half_horizontal .trn-upd, .view--quadrant .trn-upd { font-size: 0; }
+  .view--half_horizontal .trn-upd b, .view--quadrant .trn-upd b { font-size: 13px; }
+  .view--half_horizontal .trn-ban, .view--quadrant .trn-ban { font-size: 11px; padding: 1px 5px; border-width: 1px; gap: 5px; }
+  .view--half_horizontal .trn-ic, .view--quadrant .trn-ic { width: 14px; height: 14px; font-size: 10px; }
+  .view--half_horizontal .trn-row, .view--quadrant .trn-row { gap: 7px; }
+  .view--half_horizontal .trn-time, .view--quadrant .trn-time { width: 64px; height: 32px; font-size: 19px; border-radius: 6px; }
+  .view--half_horizontal .trn-num, .view--quadrant .trn-num { font-size: 14px; }
+  .view--half_horizontal .trn-sub, .view--quadrant .trn-sub, .view--half_horizontal .trn-msg, .view--quadrant .trn-msg { font-size: 11px; }
+  .view--half_horizontal .trn-quai, .view--quadrant .trn-quai { width: 34px; height: 32px; border-radius: 6px; }
+  .view--half_horizontal .trn-quai small, .view--quadrant .trn-quai small { font-size: 7px; }
+  .view--half_horizontal .trn-quai b, .view--quadrant .trn-quai b { font-size: 16px; }
+  .view--half_horizontal .trn-state, .view--quadrant .trn-state { width: 62px; gap: 1px; }
+  .view--half_horizontal .trn-in, .view--quadrant .trn-in { font-size: 13px; }
+  .view--half_horizontal .trn-chip, .view--quadrant .trn-chip { font-size: 10px; padding: 0 4px; }
+  .view--quadrant .trn-info { gap: 0; }
+  /* Petits formats : pastille de retard et légende abrégées. */
+  .view--half_vertical .trn-lg, .view--half_horizontal .trn-lg, .view--quadrant .trn-lg { display: none; }
+  .view--half_horizontal .trn-ban + .trn-ban, .view--quadrant .trn-ban + .trn-ban { display: none; }
+</style>
+
+<div class="layout layout--col layout--top layout--stretch">
+  <div class="trn">
+    <div class="trn-head">
+      <div class="trn-title">{{ cfg.stop_label | default: "Orléans → Paris" }}</div>
+      <div class="trn-upd">info gare SNCF<br>MAJ <b>{{ gen | plus: off | date: "%H:%M" }}</b></div>
+    </div>
+
+    {%- if stale -%}
+      <div class="trn-ban trn-ban--inv"><span class="trn-ic">!</span><span>Données du {{ gen | plus: off | date: "%H:%M" }} : relais en retard</span></div>
+    {%- elsif rt_ok != true -%}
+      <div class="trn-ban trn-ban--inv"><span class="trn-ic">!</span><span>Temps réel SNCF indisponible : horaires théoriques</span></div>
+    {%- endif -%}
+    {%- if alerts.size > 0 -%}
+      <div class="trn-ban"><span class="trn-ic">i</span><span>{% if alerts.size > 1 %}{{ alerts.size }} infos · {% endif %}{{ alerts[0].title }}</span></div>
+    {%- endif -%}
+
+    <div class="trn-rows">
+    {%- for d in departures -%}
+      {%- if shown >= max_rows -%}{%- break -%}{%- endif -%}
+      {%- assign eff = d.eff_ts | plus: 0 -%}
+      {%- assign dep = d.dep_ts | plus: 0 -%}
+      {%- assign mins = eff | minus: now_s | divided_by: 60 -%}
+      {%- if d.status == "supprime" -%}
+        {%- assign mins = dep | minus: now_s | divided_by: 60 -%}
+        {%- if mins < 0 -%}{%- continue -%}{%- endif -%}
+      {%- elsif mins < walk -%}{%- continue -%}{%- endif -%}
+      {%- assign cls = "trn-time" -%}
+      {%- if d.status == "supprime" -%}{%- assign cls = cls | append: " trn-time--x" -%}
+      {%- elsif d.rt != true -%}{%- assign cls = cls | append: " trn-time--p" -%}{%- endif -%}
+      {%- assign shown = shown | plus: 1 -%}
+      <div class="trn-row">
+        <span class="{{ cls }}">{{ d.dep }}</span>
+        <div class="trn-info">
+          <span class="trn-num">{{ d.type }} <span class="trn-no">{{ d.train }}</span></span>
+          {%- if d.msg != "" -%}
+            <span class="trn-msg">{{ d.msg }}</span>
+          {%- else -%}
+            <span class="trn-sub">{{ d.via }} · arr. {{ d.arr }}</span>
+          {%- endif -%}
+        </div>
+        {%- if d.platform != "" -%}
+          <span class="trn-quai"><small>voie</small><b>{{ d.platform }}</b></span>
+        {%- else -%}
+          <span class="trn-quai trn-quai--none"><small>voie</small><b>–</b></span>
+        {%- endif -%}
+        <div class="trn-state">
+          {%- if d.status == "supprime" -%}
+            <span class="trn-chip">Supprimé</span>
+          {%- else -%}
+            {%- if d.delay > 0 -%}<span class="trn-chip">+{{ d.delay }}<span class="trn-lg"> min · {{ d.expected }}</span></span>{%- endif -%}
+            <span class="trn-in">{% if d.day != "" %}{{ d.day }}{% elsif mins <= 0 %}départ{% elsif mins < 60 %}{{ mins }} min{% else %}{% assign hh = mins | divided_by: 60 %}{% assign mm = mins | modulo: 60 %}{{ hh }} h {% if mm < 10 %}0{% endif %}{{ mm }}{% endif %}</span>
+          {%- endif -%}
+        </div>
+      </div>
+    {%- endfor -%}
+    {%- if shown == 0 -%}
+      <div class="trn-empty">Aucun train vers Paris dans les prochaines heures.</div>
+    {%- endif -%}
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Trains</span>
+  <span class="instance"><span class="trn-lg"><span class="trn-key"></span> temps réel <span class="trn-key trn-key--p"></span> théorique · </span>SNCF open data</span>
+</div>
