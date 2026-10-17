@@ -1,5 +1,5 @@
 # Publie horaires.json (trains théoriques Orléans → Paris et leurs dates) sur GitHub Pages.
-# Le temps réel est ajouté par la fonction Serverless du plugin TRMNL (trmnl/serverless.py),
+# Le temps réel est ajouté par la fonction Serverless du plugin TRMNL (trmnl/transform.js),
 # à chaque rechargement : cette tâche n'a besoin de tourner qu'à chaque envoi de code,
 # et une fois par semaine pour suivre les nouvelles versions des horaires SNCF.
 name: Horaires trains
