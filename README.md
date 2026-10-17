@@ -22,7 +22,7 @@ Si le flux temps réel ne répond plus ou date de plus de 20 minutes, `rt_ok` pa
 
 - `relais.py` : le relais (Python 3.9 ou plus, bibliothèque standard uniquement).
 - `.github/workflows/relais.yml` : la tâche planifiée qui le lance et publie le résultat.
-- `trmnl/` : le plugin privé TRMNL (`settings.yml` et les gabarits Liquid). `trains.liquid` est la source : `python3 trmnl/build.py` en tire les 4 formats.
+- `trmnl/` : le plugin privé TRMNL (`settings.yml` et les gabarits Liquid). `trains.liquid` est la source : `python3 trmnl/build.py` en fait le gabarit commun `shared.liquid`, que TRMNL ajoute en tête des 4 formats.
 
 Pour une autre gare ou une autre destination, changer les variables `FROM_UIC` et `TO_UIC` (codes UIC à 8 chiffres) dans la tâche planifiée.
 

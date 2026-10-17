@@ -18,7 +18,7 @@ ARGV[3..].each do |json|
   trmnl = { "plugin_settings" => { "custom_fields_values" => {} }, "user" => { "utc_offset" => 7200 } }
   html << "<h2 style='font:16px sans-serif;margin:24px 0 4px'>#{File.basename(json)}</h2>"
   [["full", 800, 480], ["quadrant", 400, 240], ["half_vertical", 400, 480]].each do |view, w, h|
-    tpl = Liquid::Template.parse(File.read(File.join(dir, "#{view}.liquid")), error_mode: :strict)
+    tpl = Liquid::Template.parse(File.read(File.join(dir, "shared.liquid")) + File.read(File.join(dir, "#{view}.liquid")), error_mode: :strict)
     r = tpl.render!(data.merge("trmnl" => trmnl))
     html << "<div style='display:inline-block;vertical-align:top;margin:0 12px 12px 0'><div style='font:12px sans-serif'>#{view}</div><div class='screen' style='width:#{w}px;height:#{h}px;border:1px solid #999'><div class='view view--#{view}'>#{r}</div></div></div>"
   end

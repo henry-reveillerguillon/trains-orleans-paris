@@ -1,8 +1,11 @@
-"""Fabrique les 4 gabarits TRMNL à partir de trains.liquid (seul change le nombre de lignes)."""
+"""Prépare le plugin TRMNL : trains.liquid devient le gabarit commun (shared.liquid),
+ajouté par TRMNL en tête de chaque format ; les 4 formats ne contiennent rien d'autre."""
 import os
 here = os.path.dirname(os.path.abspath(__file__))
 src = open(os.path.join(here, "trains.liquid"), encoding="utf-8").read()
-for view, rows in (("full", 6), ("half_vertical", 6), ("half_horizontal", 3), ("quadrant", 3)):
+with open(os.path.join(here, "shared.liquid"), "w", encoding="utf-8") as f:
+    f.write(src)
+for view in ("full", "half_vertical", "half_horizontal", "quadrant"):
     with open(os.path.join(here, view + ".liquid"), "w", encoding="utf-8") as f:
-        f.write("{%%- assign default_rows = %d -%%}\n" % rows + src)
+        f.write("{%- comment -%} Gabarit commun : shared.liquid (source : trains.liquid). {%- endcomment -%}\n")
 print("ok")

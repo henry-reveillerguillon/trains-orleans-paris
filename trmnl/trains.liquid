@@ -7,7 +7,7 @@
 {%- assign off = trmnl.user.utc_offset | plus: 0 -%}
 {%- assign now_s = "now" | date: "%s" | plus: 0 -%}
 {%- assign walk = cfg.walk_minutes | default: 0 | plus: 0 -%}
-{%- assign max_rows = cfg.max_rows | default: default_rows | plus: 0 -%}
+{%- assign max_rows = cfg.max_rows | default: 6 | plus: 0 -%}
 {%- assign gen = generated_ts | default: 0 | plus: 0 -%}
 {%- assign age_min = now_s | minus: gen | divided_by: 60 -%}
 {%- assign stale = false -%}
@@ -85,6 +85,8 @@
   /* Petits formats : pastille de retard et légende abrégées. */
   .view--half_vertical .trn-lg, .view--half_horizontal .trn-lg, .view--quadrant .trn-lg { display: none; }
   .view--half_horizontal .trn-ban + .trn-ban, .view--quadrant .trn-ban + .trn-ban { display: none; }
+  /* Petits formats : 3 trains au plus. */
+  .view--half_horizontal .trn-row:nth-child(n+4), .view--quadrant .trn-row:nth-child(n+4) { display: none; }
 </style>
 
 <div class="layout layout--col layout--top layout--stretch">
