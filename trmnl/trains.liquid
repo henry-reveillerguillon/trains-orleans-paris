@@ -1,6 +1,7 @@
 {%- comment -%}
-  TRMNL · Trains Orléans → Paris, info en gare SNCF (relais open data, sans clé)
-  Polling : JSON produit par relais.py (horaires théoriques + PIV temps réel + messages voyageurs).
+  TRMNL · Trains Orléans → Paris, info en gare SNCF (open data, sans clé)
+  Polling : horaires.json (trains théoriques) ; transform.js (Serverless) y ajoute la PIV
+  temps réel et les messages voyageurs, et produit les variables ci-dessous.
   Case de l'heure : pleine = suivi en temps réel, pointillée = horaire théorique, barrée = supprimé.
 {%- endcomment -%}
 {%- assign cfg = trmnl.plugin_settings.custom_fields_values -%}
@@ -97,7 +98,7 @@
     </div>
 
     {%- if stale -%}
-      <div class="trn-ban trn-ban--inv"><span class="trn-ic">!</span><span>Données du {{ gen | plus: off | date: "%H:%M" }} : relais en retard</span></div>
+      <div class="trn-ban trn-ban--inv"><span class="trn-ic">!</span><span>Données du {{ gen | plus: off | date: "%H:%M" }} : pas de mise à jour depuis</span></div>
     {%- elsif rt_ok != true -%}
       <div class="trn-ban trn-ban--inv"><span class="trn-ic">!</span><span>Temps réel SNCF indisponible : horaires théoriques</span></div>
     {%- endif -%}
