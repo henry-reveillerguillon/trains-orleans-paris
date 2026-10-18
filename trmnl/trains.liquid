@@ -5,8 +5,18 @@
   Case de l'heure : pleine = suivi en temps réel, pointillée = horaire théorique, barrée = supprimé.
 {%- endcomment -%}
 {%- assign cfg = trmnl.plugin_settings.custom_fields_values -%}
-{%- assign off = trmnl.user.utc_offset | plus: 0 -%}
+{%- comment -%} Décalage de l'heure de Paris, sans dépendre du fuseau du compte TRMNL :
+  UTC+2 du dernier dimanche de mars au dernier dimanche d'octobre (1 h UTC), sinon UTC+1. {%- endcomment -%}
 {%- assign now_s = "now" | date: "%s" | plus: 0 -%}
+{%- assign tz_y = now_s | date: "%Y" -%}
+{%- assign tz_m = tz_y | append: "-03-31T01:00:00Z" -%}
+{%- assign tz_o = tz_y | append: "-10-31T01:00:00Z" -%}
+{%- assign tz_mw = tz_m | date: "%w" | plus: 0 | times: 86400 -%}
+{%- assign tz_ow = tz_o | date: "%w" | plus: 0 | times: 86400 -%}
+{%- assign tz_a = tz_m | date: "%s" | plus: 0 | minus: tz_mw -%}
+{%- assign tz_b = tz_o | date: "%s" | plus: 0 | minus: tz_ow -%}
+{%- assign off = 3600 -%}
+{%- if now_s >= tz_a and now_s < tz_b -%}{%- assign off = 7200 -%}{%- endif -%}
 {%- assign walk = cfg.walk_minutes | default: 0 | plus: 0 -%}
 {%- assign max_rows = cfg.max_rows | default: 6 | plus: 0 -%}
 {%- assign gen = generated_ts | default: 0 | plus: 0 -%}
